@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <GL/glut.h>
+#include <math.h>
 
 void CALLBACK beginCallback(GLenum type) {
     glBegin(type);
@@ -43,11 +44,22 @@ typedef struct {
 
 typedef struct {
     Poligono bracoEsq;
+    Poligono detalheBracoEsq;
+    Poligono luvaEsq;
     Poligono bracoDir;
+    Poligono detalheBracoDir;
+    Poligono luvaDir;
     Poligono pernaEsq;
+    Poligono detalhePernaEsq;
     Poligono pernaDir;
+    Poligono detalhePernaDir;
     Poligono corpo;
+    Poligono detalheCorpo1;
+    Poligono detalheCorpo2;
     Poligono rosto;
+    Poligono boca;
+    Poligono contOlho;
+    Poligono iris;
     Poligono cabelo;
 } Personagem;
 
@@ -62,17 +74,18 @@ typedef struct {
 } Cenario;
 
 // --- Ângulos para os movimentos gerais ---
-float tx = 10.0f, ty = -30.0f;
-float anguloGeral = 0.0f;
-float escala = 1.0f;
+float tx = 10.0f, ty = -23.0f;
+float anguloGeral = 1.0f;
+float escala = 1.5f;
 float passoTrans = 0.2f;
 float passoRot = 5.0f;
 float passoEscala = 0.05f;
+float posCenario = -50.0f;
 
 // --- Ângulos locais das articulações ---
-float angBracoEsq = 30, angBracoDir = -80;
-float angPernaEsq = 10, angPernaDir = -10;
-float angCabeca = 0;
+float angBracoEsq = 0.0f, angBracoDir = 0.0f;
+float angPernaEsq = 0.0f, angPernaDir = 0.0f;
+float angCabeca = 0.0f;
 
 // --- Funções ---
 Poligono LerPoligono(const char *nomeArquivo) {
@@ -135,7 +148,14 @@ void DesenhaPoligono(Poligono p) {
 void DesenhaCenario(Cenario c){
     DesenhaPoligono(c.ceu);
     glPushMatrix();
-        glTranslatef(-40.0, 0.0, 0.0);
+        glTranslatef(posCenario, 0.0, 0.0);
+        DesenhaPoligono(c.montanhas);
+        DesenhaPoligono(c.chao);
+        DesenhaPoligono(c.sol);
+        DesenhaPoligono(c.estrela);
+        DesenhaPoligono(c.iglu);
+        DesenhaPoligono(c.portaIglu);
+        glTranslatef(-200.0f, 0, 0);
         DesenhaPoligono(c.montanhas);
         DesenhaPoligono(c.chao);
         DesenhaPoligono(c.sol);
@@ -158,6 +178,8 @@ void DesenhaPersonagemHier(Personagem p) {
             glTranslatef(1.69, 8.23, 0); // ombro
             glRotatef(angBracoDir, 0, 0, 1); // Ângulo para rotação no ombro dir.
             DesenhaPoligono(p.bracoDir);
+            DesenhaPoligono(p.detalheBracoDir);
+            DesenhaPoligono(p.luvaDir);
         glPopMatrix();
 
         // Perna direita
@@ -165,23 +187,29 @@ void DesenhaPersonagemHier(Personagem p) {
             glTranslatef(0.86, 1.98, 0); // quadril
             glRotatef(angPernaDir, 0, 0, 1); // Ângulo para rotação da perna dir.
             DesenhaPoligono(p.pernaDir);
-        glPopMatrix();
-
-        // Perna esquerda
-        glPushMatrix();
-            glTranslatef(0.86, 1.98, 0); // quadril
-            glRotatef(angPernaEsq, 0, 0, 1); // Ângulo para rotação da perna esq.
-            DesenhaPoligono(p.pernaEsq);
+            DesenhaPoligono(p.detalhePernaDir);
         glPopMatrix();
 
         glTranslatef(0.54, 5.40, 0);
         DesenhaPoligono(p.corpo);
+        DesenhaPoligono(p.detalheCorpo1);
+        DesenhaPoligono(p.detalheCorpo2);
+
+        // Perna esquerda
+        glPushMatrix();
+            glTranslatef(0.32, -3.42, 0); // quadril
+            glRotatef(angPernaEsq, 0, 0, 1); // Ângulo para rotação da perna esq.
+            DesenhaPoligono(p.pernaEsq);
+            DesenhaPoligono(p.detalhePernaEsq);
+        glPopMatrix();
 
         // Braço esquerdo
         glPushMatrix();
             glTranslatef(1.15, 2.83, 0); // ombro
             glRotatef(angBracoEsq, 0, 0, 1); // Ângulo para rotação no ombro esq.
             DesenhaPoligono(p.bracoEsq);
+            DesenhaPoligono(p.detalheBracoEsq);
+            DesenhaPoligono(p.luvaEsq);
         glPopMatrix();
 
         // Cabeça (posição relativa ao corpo)
@@ -189,6 +217,9 @@ void DesenhaPersonagemHier(Personagem p) {
             glTranslatef(0.81, 4.33, 0);
             glRotatef(angCabeca, 0, 0, 1); // Ângulo para rotação no pescoço
             DesenhaPoligono(p.rosto);
+            DesenhaPoligono(p.boca);
+            DesenhaPoligono(p.contOlho);
+            DesenhaPoligono(p.iris);
             DesenhaPoligono(p.cabelo);
         glPopMatrix();
 
@@ -198,6 +229,25 @@ void DesenhaPersonagemHier(Personagem p) {
 // --- Variável global ---
 Personagem personagem;
 Cenario cenario;
+float t = 0.0f;
+
+void LoopAndar(int value) {
+    t += 0.05f; // velocidade da animação
+    const float amp = 12.0f; // amplitude em graus ou unidades que você usa
+    angBracoDir =  amp * sinf(t);
+    angBracoEsq = -amp * sinf(t);
+    angPernaDir = -amp * sinf(t);
+    angPernaEsq =  amp * sinf(t);
+
+    posCenario += 0.1f;
+
+    if (posCenario >= 200.0f){
+        posCenario = 0.0f;
+    }
+
+    glutPostRedisplay(); // redesenha a cena
+    glutTimerFunc(16, LoopAndar, 0); // ~60 FPS
+}
 
 // --- Inicialização OpenGL ---
 void Inicializa(void) {
@@ -230,16 +280,28 @@ void Redimensionar(int w, int h) {
     }
 }
 
-// --- Programa principal ---
-int main(int argc, char **argv) {
-
+void getPersonagem(void){
     personagem.bracoEsq = LerPoligono("braco.txt");
     personagem.bracoDir = LerPoligono("braco.txt");
+    personagem.detalheBracoEsq = LerPoligono("detalhe_braco.txt");
+    personagem.detalheBracoDir = LerPoligono("detalhe_braco.txt");
+    personagem.luvaEsq = LerPoligono("luva.txt");
+    personagem.luvaDir = LerPoligono("luva.txt");
     personagem.pernaEsq = LerPoligono("perna.txt");
     personagem.pernaDir = LerPoligono("perna.txt");
+    personagem.detalhePernaEsq = LerPoligono("detalhe_perna.txt");
+    personagem.detalhePernaDir = LerPoligono("detalhe_perna.txt");
     personagem.corpo = LerPoligono("corpo.txt");
+    personagem.detalheCorpo1 = LerPoligono("detalhe1_corpo.txt");
+    personagem.detalheCorpo2 = LerPoligono("detalhe2_corpo.txt");
     personagem.rosto = LerPoligono("rosto.txt");
+    personagem.boca = LerPoligono("boca.txt");
+    personagem.contOlho = LerPoligono("contorno_olho.txt");
+    personagem.iris = LerPoligono("iris.txt");
     personagem.cabelo = LerPoligono("cabelo.txt");
+}
+
+void getCenario(void){
     cenario.estrela = LerPoligono("estrela.txt");
     cenario.ceu = LerPoligono("ceu.txt");
     cenario.sol = LerPoligono("sol.txt");
@@ -247,7 +309,13 @@ int main(int argc, char **argv) {
     cenario.portaIglu = LerPoligono("iglu_porta.txt");
     cenario.montanhas = LerPoligono("montanhas.txt");
     cenario.chao = LerPoligono("chao.txt");
+}
 
+// --- Programa principal ---
+int main(int argc, char **argv) {
+
+    getPersonagem();
+    getCenario();
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(1000, 1000);
@@ -255,6 +323,7 @@ int main(int argc, char **argv) {
     Inicializa();
     glutDisplayFunc(Display);
     glutReshapeFunc(Redimensionar);
+    glutTimerFunc(0, LoopAndar, 0);
     glutMainLoop();
 
     return 0;
