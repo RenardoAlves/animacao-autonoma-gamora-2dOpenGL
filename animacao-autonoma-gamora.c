@@ -3,24 +3,21 @@
 #include <GL/glut.h>
 #include <math.h>
 
+// Definição de Callbacks para Windows
 void CALLBACK beginCallback(GLenum type) {
     glBegin(type);
 }
-
 void CALLBACK endCallback() {
     glEnd();
 }
-
 void CALLBACK vertexCallback(void *vertexData) {
     const GLdouble *ptr = (GLdouble *) vertexData;
     glVertex2dv(ptr);
 }
-
 void CALLBACK errorCallback(GLenum errorCode) {
     const GLubyte *err = gluErrorString(errorCode);
     printf("Tessellation Error: %s\n", err);
 }
-
 void CALLBACK combineCallback(GLdouble coords[3], void *data[4],
                               GLfloat weight[4], void **outData)
 {
@@ -30,6 +27,34 @@ void CALLBACK combineCallback(GLdouble coords[3], void *data[4],
     vertex[2] = coords[2];
     *outData = vertex;
 }
+
+// Definição de Callbacks para Linux
+/*void beginCallback(GLenum type) {
+    glBegin(type);
+}
+void endCallback() {
+    glEnd();
+}
+void vertexCallback(GLvoid *data) {
+    double *v = (double*)data;
+    glVertex2dv(v);
+}
+void errorCallback(GLenum errorCode) {
+    const GLubyte *estring;
+    estring = gluErrorString(errorCode);
+    fprintf(stderr, "Tessellation Error: %s\n", estring);
+}
+void combineCallback(GLdouble coords[3], GLdouble *vertex_data[4],
+                     GLfloat weight[4], GLdouble **outData)
+{
+    GLdouble *vertex = (GLdouble *) malloc(6 * sizeof(GLdouble));
+
+    vertex[0] = coords[0];
+    vertex[1] = coords[1];
+    vertex[2] = coords[2];
+
+    *outData = vertex;
+}*/
 
 // --- Estruturas ---
 typedef struct {
@@ -108,12 +133,20 @@ Poligono LerPoligono(const char *nomeArquivo) {
 void DesenhaPoligono(Poligono p) {
     GLUtesselator *tess = gluNewTess();
 
-    // callbacks
+    // Chamadas de Callback Windows
     gluTessCallback(tess, GLU_TESS_BEGIN, (void (CALLBACK*)()) beginCallback);
     gluTessCallback(tess, GLU_TESS_END,   (void (CALLBACK*)()) endCallback);
     gluTessCallback(tess, GLU_TESS_VERTEX,(void (CALLBACK*)()) vertexCallback);
     gluTessCallback(tess, GLU_TESS_ERROR, (void (CALLBACK*)()) errorCallback);
     gluTessCallback(tess, GLU_TESS_COMBINE, (void (CALLBACK*)()) combineCallback);
+
+    // Chamada de Callback Linux
+  /*gluTessCallback(tess, GLU_TESS_BEGIN,  (void (*)()) beginCallback);
+    gluTessCallback(tess, GLU_TESS_END,    (void (*)()) endCallback);
+    gluTessCallback(tess, GLU_TESS_VERTEX, (void (*)()) vertexCallback);
+    gluTessCallback(tess, GLU_TESS_ERROR,  (void (*)()) errorCallback);
+    gluTessCallback(tess, GLU_TESS_COMBINE,(void (*)()) combineCallback);*/
+
 
 
     glColor3ub(p.r, p.g, p.b);
