@@ -3,33 +3,8 @@
 #include <GL/glut.h>
 #include <math.h>
 
-// Definição de Callbacks para Windows
-void CALLBACK beginCallback(GLenum type) {
-    glBegin(type);
-}
-void CALLBACK endCallback() {
-    glEnd();
-}
-void CALLBACK vertexCallback(void *vertexData) {
-    const GLdouble *ptr = (GLdouble *) vertexData;
-    glVertex2dv(ptr);
-}
-void CALLBACK errorCallback(GLenum errorCode) {
-    const GLubyte *err = gluErrorString(errorCode);
-    printf("Tessellation Error: %s\n", err);
-}
-void CALLBACK combineCallback(GLdouble coords[3], void *data[4],
-                              GLfloat weight[4], void **outData)
-{
-    GLdouble *vertex = (GLdouble *)malloc(3 * sizeof(GLdouble));
-    vertex[0] = coords[0];
-    vertex[1] = coords[1];
-    vertex[2] = coords[2];
-    *outData = vertex;
-}
-
 // Definição de Callbacks para Linux
-/*void beginCallback(GLenum type) {
+void beginCallback(GLenum type) {
     glBegin(type);
 }
 void endCallback() {
@@ -54,17 +29,41 @@ void combineCallback(GLdouble coords[3], GLdouble *vertex_data[4],
     vertex[2] = coords[2];
 
     *outData = vertex;
+}
+
+// Definição de Callbacks para Windows
+/*void CALLBACK beginCallback(GLenum type) {
+    glBegin(type);
+}
+void CALLBACK endCallback() {
+    glEnd();
+}
+void CALLBACK vertexCallback(void *vertexData) {
+    const GLdouble *ptr = (GLdouble *) vertexData;
+    glVertex2dv(ptr);
+}
+void CALLBACK errorCallback(GLenum errorCode) {
+    const GLubyte *err = gluErrorString(errorCode);
+    printf("Tessellation Error: %s\n", err);
+}
+void CALLBACK combineCallback(GLdouble coords[3], void *data[4],
+                              GLfloat weight[4], void **outData)
+{
+    GLdouble *vertex = (GLdouble *)malloc(3 * sizeof(GLdouble));
+    vertex[0] = coords[0];
+    vertex[1] = coords[1];
+    vertex[2] = coords[2];
+    *outData = vertex;
 }*/
 
-// --- Estruturas ---
 typedef struct {
     float x, y;
 } Ponto;
 
 typedef struct {
-    int n;                 // número de vértices
-    unsigned char r, g, b; // cor (0-255)
-    Ponto *v;              // vetor de vértices
+    int n;
+    unsigned char r, g, b;
+    Ponto *v;
 } Poligono;
 
 typedef struct {
@@ -95,24 +94,25 @@ typedef struct {
     Poligono ceu;
     Poligono sol;
     Poligono iglu;
+    Poligono sombraIglu;
+    Poligono sombra2Iglu;
     Poligono portaIglu;
 } Cenario;
 
-// --- Ângulos para os movimentos gerais ---
+// Variáveis para definir posição e ângulo do personagem
 float tx = 10.0f, ty = -23.0f;
 float anguloGeral = 1.0f;
 float escala = 1.5f;
-float passoTrans = 0.2f;
-float passoRot = 5.0f;
-float passoEscala = 0.05f;
-float posCenario = -50.0f;
 
-// --- Ângulos locais das articulações ---
+// Ângulos das articulações, usados na animação
 float angBracoEsq = 0.0f, angBracoDir = 0.0f;
 float angPernaEsq = 0.0f, angPernaDir = 0.0f;
 float angCabeca = 0.0f;
 
-// --- Funções ---
+// Variável para armazenar posição atual do cenário
+float posCenario = -50.0f;
+
+// Função para ler coordenadas de cada polígono a partir de um .txt
 Poligono LerPoligono(const char *nomeArquivo) {
     FILE *f = fopen(nomeArquivo, "r");
     if (!f) {
@@ -130,37 +130,35 @@ Poligono LerPoligono(const char *nomeArquivo) {
     return p;
 }
 
+// Função para desenhar o polígono e o contorno
 void DesenhaPoligono(Poligono p) {
     GLUtesselator *tess = gluNewTess();
 
-    // Chamadas de Callback Windows
-    gluTessCallback(tess, GLU_TESS_BEGIN, (void (CALLBACK*)()) beginCallback);
-    gluTessCallback(tess, GLU_TESS_END,   (void (CALLBACK*)()) endCallback);
-    gluTessCallback(tess, GLU_TESS_VERTEX,(void (CALLBACK*)()) vertexCallback);
-    gluTessCallback(tess, GLU_TESS_ERROR, (void (CALLBACK*)()) errorCallback);
-    gluTessCallback(tess, GLU_TESS_COMBINE, (void (CALLBACK*)()) combineCallback);
-
     // Chamada de Callback Linux
-  /*gluTessCallback(tess, GLU_TESS_BEGIN,  (void (*)()) beginCallback);
+    gluTessCallback(tess, GLU_TESS_BEGIN,  (void (*)()) beginCallback);
     gluTessCallback(tess, GLU_TESS_END,    (void (*)()) endCallback);
     gluTessCallback(tess, GLU_TESS_VERTEX, (void (*)()) vertexCallback);
     gluTessCallback(tess, GLU_TESS_ERROR,  (void (*)()) errorCallback);
-    gluTessCallback(tess, GLU_TESS_COMBINE,(void (*)()) combineCallback);*/
+    gluTessCallback(tess, GLU_TESS_COMBINE,(void (*)()) combineCallback);
 
-
+    // Chamadas de Callback Windows
+  /*gluTessCallback(tess, GLU_TESS_BEGIN, (void (CALLBACK*)()) beginCallback);
+    gluTessCallback(tess, GLU_TESS_END,   (void (CALLBACK*)()) endCallback);
+    gluTessCallback(tess, GLU_TESS_VERTEX,(void (CALLBACK*)()) vertexCallback);
+    gluTessCallback(tess, GLU_TESS_ERROR, (void (CALLBACK*)()) errorCallback);
+    gluTessCallback(tess, GLU_TESS_COMBINE, (void (CALLBACK*)()) combineCallback);*/
 
     glColor3ub(p.r, p.g, p.b);
 
     gluTessBeginPolygon(tess, NULL);
     gluTessBeginContour(tess);
 
-    // precisamos passar double e manter os ponteiros
     double (*coords)[3] = malloc(p.n * sizeof(double[3]));
 
     for (int i = 0; i < p.n; i++) {
         coords[i][0] = p.v[i].x;
         coords[i][1] = p.v[i].y;
-        coords[i][2] = 0.0;   // z sempre 0
+        coords[i][2] = 0.0;
         gluTessVertex(tess, coords[i], coords[i]);
     }
 
@@ -169,7 +167,6 @@ void DesenhaPoligono(Poligono p) {
     gluDeleteTess(tess);
     free(coords);
 
-    // --- contorno ---
     glColor3ub(0, 0, 0);
     glLineWidth(1);
     glBegin(GL_LINE_LOOP);
@@ -178,6 +175,7 @@ void DesenhaPoligono(Poligono p) {
     glEnd();
 }
 
+// Desenha cada elemento do cenário na posição correta
 void DesenhaCenario(Cenario c){
     DesenhaPoligono(c.ceu);
     glPushMatrix();
@@ -187,6 +185,8 @@ void DesenhaCenario(Cenario c){
         DesenhaPoligono(c.sol);
         DesenhaPoligono(c.estrela);
         DesenhaPoligono(c.iglu);
+        DesenhaPoligono(c.sombraIglu);
+        DesenhaPoligono(c.sombra2Iglu);
         DesenhaPoligono(c.portaIglu);
         glTranslatef(-200.0f, 0, 0);
         DesenhaPoligono(c.montanhas);
@@ -194,12 +194,14 @@ void DesenhaCenario(Cenario c){
         DesenhaPoligono(c.sol);
         DesenhaPoligono(c.estrela);
         DesenhaPoligono(c.iglu);
+        DesenhaPoligono(c.sombraIglu);
+        DesenhaPoligono(c.sombra2Iglu);
         DesenhaPoligono(c.portaIglu);
     glPopMatrix();
 }
 
-// --- Desenha personagem hierarquicamente ---
-void DesenhaPersonagemHier(Personagem p) {
+// Desenha cada elemento do personagem na posição correta
+void DesenhaPersonagem(Personagem p) {
     glPushMatrix();
 
         glTranslatef(tx, ty, 0);
@@ -208,8 +210,8 @@ void DesenhaPersonagemHier(Personagem p) {
 
         // Braço direito
         glPushMatrix();
-            glTranslatef(1.69, 8.23, 0); // ombro
-            glRotatef(angBracoDir, 0, 0, 1); // Ângulo para rotação no ombro dir.
+            glTranslatef(1.69, 8.23, 0);
+            glRotatef(angBracoDir, 0, 0, 1);
             DesenhaPoligono(p.bracoDir);
             DesenhaPoligono(p.detalheBracoDir);
             DesenhaPoligono(p.luvaDir);
@@ -217,12 +219,13 @@ void DesenhaPersonagemHier(Personagem p) {
 
         // Perna direita
         glPushMatrix();
-            glTranslatef(0.86, 1.98, 0); // quadril
-            glRotatef(angPernaDir, 0, 0, 1); // Ângulo para rotação da perna dir.
+            glTranslatef(0.86, 1.98, 0);
+            glRotatef(angPernaDir, 0, 0, 1);
             DesenhaPoligono(p.pernaDir);
             DesenhaPoligono(p.detalhePernaDir);
         glPopMatrix();
 
+        // Corpo
         glTranslatef(0.54, 5.40, 0);
         DesenhaPoligono(p.corpo);
         DesenhaPoligono(p.detalheCorpo1);
@@ -230,25 +233,25 @@ void DesenhaPersonagemHier(Personagem p) {
 
         // Perna esquerda
         glPushMatrix();
-            glTranslatef(0.32, -3.42, 0); // quadril
-            glRotatef(angPernaEsq, 0, 0, 1); // Ângulo para rotação da perna esq.
+            glTranslatef(0.32, -3.42, 0);
+            glRotatef(angPernaEsq, 0, 0, 1);
             DesenhaPoligono(p.pernaEsq);
             DesenhaPoligono(p.detalhePernaEsq);
         glPopMatrix();
 
         // Braço esquerdo
         glPushMatrix();
-            glTranslatef(1.15, 2.83, 0); // ombro
-            glRotatef(angBracoEsq, 0, 0, 1); // Ângulo para rotação no ombro esq.
+            glTranslatef(1.15, 2.83, 0);
+            glRotatef(angBracoEsq, 0, 0, 1);
             DesenhaPoligono(p.bracoEsq);
             DesenhaPoligono(p.detalheBracoEsq);
             DesenhaPoligono(p.luvaEsq);
         glPopMatrix();
 
-        // Cabeça (posição relativa ao corpo)
+        // Cabeça
         glPushMatrix();
             glTranslatef(0.81, 4.33, 0);
-            glRotatef(angCabeca, 0, 0, 1); // Ângulo para rotação no pescoço
+            glRotatef(angCabeca, 0, 0, 1);
             DesenhaPoligono(p.rosto);
             DesenhaPoligono(p.boca);
             DesenhaPoligono(p.contOlho);
@@ -259,14 +262,17 @@ void DesenhaPersonagemHier(Personagem p) {
     glPopMatrix();
 }
 
-// --- Variável global ---
+// Variáveis globais
 Personagem personagem;
 Cenario cenario;
 float t = 0.0f;
 
+// Função para o callback de Timer
+// Gera uma animação cíclica, simulando a caminhada
 void LoopAndar(int value) {
-    t += 0.05f; // velocidade da animação
-    const float amp = 12.0f; // amplitude em graus ou unidades que você usa
+    t += 0.05f; // Deslocamento por frame
+    t = fmodf(t, 2.0f * M_PI); // Zera a variável a cada ciclo [para evitar overflow]
+    const float amp = 12.0f; // Amplitude do movimento
     angBracoDir =  amp * sinf(t);
     angBracoEsq = -amp * sinf(t);
     angPernaDir = -amp * sinf(t);
@@ -278,11 +284,10 @@ void LoopAndar(int value) {
         posCenario = 0.0f;
     }
 
-    glutPostRedisplay(); // redesenha a cena
-    glutTimerFunc(16, LoopAndar, 0); // ~60 FPS
+    glutPostRedisplay();
+    glutTimerFunc(16, LoopAndar, 0); // Cria uma recursão com um atraso de 16ms
 }
 
-// --- Inicialização OpenGL ---
 void Inicializa(void) {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glMatrixMode(GL_PROJECTION);
@@ -292,15 +297,14 @@ void Inicializa(void) {
     glLoadIdentity();
 }
 
-// --- Display ---
 void Display(void) {
     glClear(GL_COLOR_BUFFER_BIT);
     DesenhaCenario(cenario);
-    DesenhaPersonagemHier(personagem);
+    DesenhaPersonagem(personagem);
     glutSwapBuffers();
 }
 
-// Função de callback para redimensionamento
+// Função para o callback de Reshape
 void Redimensionar(int w, int h) {
     if (w == h) {
         glViewport(0, 0, w, h);
@@ -313,6 +317,7 @@ void Redimensionar(int w, int h) {
     }
 }
 
+// Função para ler os .txt referente ao personagem
 void getPersonagem(void){
     personagem.bracoEsq = LerPoligono("braco.txt");
     personagem.bracoDir = LerPoligono("braco.txt");
@@ -334,17 +339,20 @@ void getPersonagem(void){
     personagem.cabelo = LerPoligono("cabelo.txt");
 }
 
+// Função para ler os .txt referente ao cenário
 void getCenario(void){
     cenario.estrela = LerPoligono("estrela.txt");
     cenario.ceu = LerPoligono("ceu.txt");
     cenario.sol = LerPoligono("sol.txt");
     cenario.iglu = LerPoligono("iglu.txt");
+    cenario.sombraIglu = LerPoligono("sombra_iglu.txt");
+    cenario.sombra2Iglu = LerPoligono("sombra2_iglu.txt");
     cenario.portaIglu = LerPoligono("iglu_porta.txt");
     cenario.montanhas = LerPoligono("montanhas.txt");
     cenario.chao = LerPoligono("chao.txt");
 }
 
-// --- Programa principal ---
+// Programa principal
 int main(int argc, char **argv) {
 
     getPersonagem();
